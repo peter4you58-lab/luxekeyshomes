@@ -12,7 +12,6 @@ export default function Footer() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <Link to="/contact" className="linkbtn" style={{ textDecoration: 'none', color: 'var(--ink-soft)' }}>Contact</Link>
-          <Link to="/admin" className="linkbtn" style={{ textDecoration: 'none', color: 'var(--ink-soft)' }}>Staff console</Link>
           <span className="demo-tag">Investor demo</span>
           <button
             className="linkbtn"
