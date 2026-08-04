@@ -68,11 +68,17 @@ export default function Contact() {
         <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap', marginTop: 22, color: 'var(--ink-soft)', fontSize: 15 }}>
           <div>
             <strong style={{ color: 'var(--ink)' }}>Email</strong>
-            <br />hello@luxekeyshomes.com
+            <br />
+            <a href="mailto:admin@luxekeyshomes.com" style={{ color: 'var(--ink-soft)' }}>admin@luxekeyshomes.com</a>
           </div>
           <div>
-            <strong style={{ color: 'var(--ink)' }}>WhatsApp</strong>
-            <br />+234 800 000 0000
+            <strong style={{ color: 'var(--ink)' }}>Call or WhatsApp</strong>
+            <br />
+            <a href="tel:+2349138396887" style={{ color: 'var(--ink-soft)' }}>+234 913 839 6887</a>
+            <br />
+            <a href="tel:+2348128422755" style={{ color: 'var(--ink-soft)' }}>+234 812 842 2755</a>
+            <br />
+            <a href="tel:+2348183402846" style={{ color: 'var(--ink-soft)' }}>+234 818 340 2846</a>
           </div>
           <div>
             <strong style={{ color: 'var(--ink)' }}>Office</strong>

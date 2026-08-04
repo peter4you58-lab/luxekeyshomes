@@ -40,11 +40,11 @@ export default function Home() {
           <div className="rise">
             <span className="eyebrow">Nigeria&apos;s verified rental marketplace</span>
             <h1>
-              Rent straight from the <span className="u">verified landlord.</span>
+              Rent directly from a <span className="u">verified landlord.</span>
             </h1>
             <p className="hero__lead">
-              No agents. No agency fees. No Jiji guesswork. Every listing is physically inspected and every landlord is
-              ID-verified — two separate checks, both shown to you before you pay.
+              Every home is inspected in person and every landlord verified — so you can deal directly, and view with
+              confidence.
             </p>
             <div className="hero__cta">
               <a href="#browse" className="btn btn-primary btn-lg">

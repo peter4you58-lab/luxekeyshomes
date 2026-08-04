@@ -1,4 +1,5 @@
 import { Link, NavLink } from 'react-router-dom'
+import logoEmblem from '../assets/logo-emblem.png'
 
 // LuxeKeys Homes brand mark: a gold key on a deep-green badge. The key is the
 // recognizable symbol (like a monogram), tying "Luxe" + "Keys" to real estate.
@@ -31,7 +32,7 @@ export default function Header() {
     <header className="site-header">
       <div className="wrap site-header__row">
         <Link to="/" className="brand">
-          <BrandMark />
+          <img className="brand__mark" src={logoEmblem} alt="LuxeKeys Homes" />
           <span className="brand__word">
             Luxe<em>Keys</em>
             <span className="brand__sub">HOMES</span>

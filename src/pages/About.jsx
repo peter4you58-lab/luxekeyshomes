@@ -11,8 +11,8 @@ export default function About() {
           </h1>
           <p style={{ fontSize: 18, color: 'var(--ink-soft)', marginTop: 18, lineHeight: 1.6 }}>
             LuxeKeys Homes connects verified landlords and property owners directly with the people who want to rent or
-            buy — no agents in the middle, no agency fees, no guesswork. Every listing is physically inspected and every
-            owner is identity-verified, so trust is built into the deal before money ever changes hands.
+            buy. Every home is inspected in person and every owner identity-verified, so trust is built into the deal
+            before money ever changes hands.
           </p>
           <div className="hero__cta" style={{ marginTop: 24 }}>
             <Link to="/" className="btn btn-primary btn-lg">Browse verified homes</Link>

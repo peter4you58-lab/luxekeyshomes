@@ -1,0 +1,58 @@
+/* ============================================================
+   LuxeKeys — luxury theme overlay  (BARNES-inspired)
+   Loaded AFTER index.css so these declarations win. It only
+   re-points the design tokens + display font, so every page
+   and component restyles at once through the shared variables.
+   Warm ivory canvas · deepened emerald · champagne-gold seal
+   · editorial serif display.
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* canvas & ink — warm, editorial */
+  --ink: #211f1a;
+  --ink-soft: #6e6a61;
+  --ink-faint: #a6a196;
+  --paper: #f7f5ef;
+  --surface: #ffffff;
+  --line: #e6e1d5;
+  --line-strong: #d8d1c0;
+
+  /* emerald — brand anchor, deepened */
+  --green-900: #0e2a22;
+  --green-700: #164a39;
+  --green-500: #2e8b57;
+  --green-100: #e4ede7;
+
+  /* champagne gold — the verification seal */
+  --gold: #c6a25a;
+  --gold-deep: #9a7b36;
+  --gold-soft: #f1e7ce;
+
+  /* editorial type */
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* softer, warmer elevation */
+  --shadow-sm: 0 1px 2px rgba(20, 30, 25, .05), 0 4px 14px rgba(20, 30, 25, .05);
+  --shadow-md: 0 8px 30px rgba(20, 30, 25, .09);
+  --shadow-lg: 0 24px 60px rgba(14, 42, 34, .14);
+}
+
+/* Fraunces is a display serif — let it breathe: lighter weights, tighter track */
+h1, h2, h3, h4 { font-weight: 500; letter-spacing: -0.015em; }
+.hero h1 { font-weight: 400; letter-spacing: -0.02em; }
+.brand { font-weight: 500; letter-spacing: -0.01em; }
+
+/* warm the sticky header glass to the ivory canvas */
+.site-header { background: rgba(247, 245, 239, 0.82); border-bottom-color: var(--line); }
+
+/* the verification underline reads as a champagne wash */
+.hero h1 .u::after { background: var(--gold-soft); height: 0.30em; }
+
+/* gold buttons: a little lift, warmer press state */
+.btn-gold { color: #3a2c07; box-shadow: 0 6px 18px rgba(198, 162, 90, .28); }
+.btn-gold:hover { color: #fff; box-shadow: 0 12px 26px rgba(198, 162, 90, .38); }
+
+/* real logo mark sits a touch larger than the old glyph */
+.brand__mark { width: auto; height: 40px; }
