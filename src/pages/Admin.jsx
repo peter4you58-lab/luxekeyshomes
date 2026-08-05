@@ -11,6 +11,8 @@ import {
 } from '../data/store'
 import { naira, photoStyle, cover, STATUS_META, ESCROW_META } from '../utils'
 import { findAccount } from '../data/adminAccounts'
+import { staffSignIn, signOut as authSignOut, currentStaff } from '../data/auth'
+import { hasSupabase } from '../lib/supabase'
 import StatusBadge from '../components/StatusBadge'
 import EscrowTracker from '../components/EscrowTracker'
 
@@ -45,6 +47,7 @@ const TENANT_CHECKS = [
 
 function useAdminAuth() {
   const [user, setUser] = useState(() => {
+    if (hasSupabase) return null
     try {
       const raw = sessionStorage.getItem('pc.adminUser')
       return raw ? JSON.parse(raw) : null
@@ -52,20 +55,29 @@ function useAdminAuth() {
       return null
     }
   })
+  useEffect(() => {
+    if (hasSupabase) currentStaff().then((u) => u && setUser(u))
+  }, [])
   const login = (account) => {
     const safe = { username: account.username, name: account.name, role: account.role }
-    try {
-      sessionStorage.setItem('pc.adminUser', JSON.stringify(safe))
-    } catch {
-      /* ignore */
+    if (!hasSupabase) {
+      try {
+        sessionStorage.setItem('pc.adminUser', JSON.stringify(safe))
+      } catch {
+        /* ignore */
+      }
     }
     setUser(safe)
   }
   const logout = () => {
-    try {
-      sessionStorage.removeItem('pc.adminUser')
-    } catch {
-      /* ignore */
+    if (hasSupabase) {
+      authSignOut()
+    } else {
+      try {
+        sessionStorage.removeItem('pc.adminUser')
+      } catch {
+        /* ignore */
+      }
     }
     setUser(null)
   }
@@ -76,10 +88,24 @@ function Login({ onLogin }) {
   const [u, setU] = useState('')
   const [p, setP] = useState('')
   const [err, setErr] = useState(false)
-  const attempt = () => {
-    const account = findAccount(u, p)
-    if (account) onLogin(account)
-    else setErr(true)
+  const [busy, setBusy] = useState(false)
+  const attempt = async () => {
+    setErr(false)
+    if (hasSupabase) {
+      setBusy(true)
+      try {
+        const acct = await staffSignIn(u, p)
+        onLogin(acct)
+      } catch {
+        setErr(true)
+      } finally {
+        setBusy(false)
+      }
+    } else {
+      const account = findAccount(u, p)
+      if (account) onLogin({ username: account.username, name: account.name, role: account.role })
+      else setErr(true)
+    }
   }
   return (
     <div className="wrap section">
@@ -88,19 +114,24 @@ function Login({ onLogin }) {
         <p className="admin-sub">Restricted to LuxeKeys team members.</p>
         <div className="form-card">
           <div className="field" style={{ marginBottom: 12 }}>
-            <label>Username</label>
-            <input value={u} onChange={(e) => { setU(e.target.value); setErr(false) }} placeholder="e.g. jideofor" autoComplete="username" />
+            <label>{hasSupabase ? 'Email' : 'Username'}</label>
+            <input value={u} onChange={(e) => { setU(e.target.value); setErr(false) }}
+              placeholder={hasSupabase ? 'you@luxekeyshomes.com' : 'e.g. jideofor'}
+              autoComplete={hasSupabase ? 'email' : 'username'} />
           </div>
           <div className="field" style={{ marginBottom: 12 }}>
             <label>Password</label>
             <input type="password" value={p} onChange={(e) => { setP(e.target.value); setErr(false) }}
               onKeyDown={(e) => e.key === 'Enter' && attempt()} placeholder="Your password" autoComplete="current-password" />
-            {err && <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 6 }}>Incorrect username or password.</p>}
+            {err && <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 6 }}>Incorrect email or password.</p>}
           </div>
-          <button className="btn btn-primary btn-block" onClick={attempt}>Sign in</button>
+          <button className="btn btn-primary btn-block" onClick={attempt} disabled={busy}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
           <p className="hint" style={{ fontSize: 12, marginTop: 12, textAlign: 'center' }}>
-            Team accounts are managed in <code>src/data/adminAccounts.js</code>. This front-end login is for the prototype —
-            real access control comes from server-side auth (Supabase).
+            {hasSupabase
+              ? 'Access is controlled by Supabase Auth and row-level security — real server-side access control.'
+              : 'Prototype login. Configure Supabase to switch on real server-side auth.'}
           </p>
         </div>
       </div>

@@ -9,6 +9,7 @@ import ListProperty from './pages/ListProperty'
 import TenantRegister from './pages/TenantRegister'
 import Contact from './pages/Contact'
 import About from './pages/About'
+import Pricing from './pages/Pricing'
 import Admin from './pages/Admin'
 import TenantDashboard from './pages/TenantDashboard'
 import LandlordDashboard from './pages/LandlordDashboard'
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="/list" element={<ListProperty />} />
           <Route path="/register" element={<TenantRegister />} />
           <Route path="/about" element={<About />} />
+          <Route path="/pricing" element={<Pricing />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/dashboard/tenant" element={<TenantDashboard />} />
           <Route path="/dashboard/landlord" element={<LandlordDashboard />} />

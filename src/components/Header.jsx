@@ -46,6 +46,9 @@ export default function Header() {
           <NavLink to="/register" className={({ isActive }) => 'navlink navlink--hide-sm' + (isActive ? ' navlink--active' : '')}>
             For tenants
           </NavLink>
+          <NavLink to="/pricing" className={({ isActive }) => 'navlink navlink--hide-sm' + (isActive ? ' navlink--active' : '')}>
+            Pricing
+          </NavLink>
           <NavLink to="/about" className={({ isActive }) => 'navlink navlink--hide-sm' + (isActive ? ' navlink--active' : '')}>
             About
           </NavLink>

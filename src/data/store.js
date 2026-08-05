@@ -1,17 +1,20 @@
 import { useSyncExternalStore } from 'react'
 import { SEED_LISTINGS } from './seed'
+import { supabase } from '../lib/supabase'
 
 // -----------------------------------------------------------------------------
-// Demo data store. Backed by localStorage for persistence + offline (PWA); the
-// source of truth React reads is an in-memory cache so getSnapshot returns a
-// STABLE reference (a fresh JSON.parse each call causes an infinite loop).
+// Data store — DUAL MODE.
+//   * If Supabase keys are configured: listings, tenant profiles, and contact
+//     messages live in real Postgres (shared across everyone, RLS-protected),
+//     hydrated into the in-memory cache below and kept live via realtime.
+//   * If not: everything falls back to localStorage exactly as before, so the
+//     app keeps working before/without a backend.
+// The in-memory `cache` stays the synchronous source of truth React reads, so
+// the component API (useListings, addListing, setListingStatus, ...) is
+// unchanged — pages don't need edits. Writes update the cache immediately
+// (optimistic) and persist to Supabase in the background.
 //
-// Verification workflow statuses (both listings and tenants):
-//   pending -> in_review -> verified | rejected | needs_info
-//
-// >>> GOING REAL: swap load()/commit() for Supabase; add Auth + a role check on
-//     /admin. Component API (useListings, addListing, setListingStatus, ...)
-//     stays identical, so pages don't change.
+// Threads, escrow, saved bookmarks and session video remain local demo state.
 // -----------------------------------------------------------------------------
 
 const KEYS = {
@@ -25,25 +28,18 @@ const KEYS = {
   saved: 'pc.saved',
 }
 const listeners = new Set()
+const emit = () => listeners.forEach((l) => l())
 
-// Session-only video playback. Video files are too large for localStorage, so
-// uploaded videos live as in-memory object URLs (blob:) keyed by listing id.
-// They play back during the browser session but don't survive a refresh — the
-// real product streams them from Cloudinary/Mux. Not persisted on purpose.
 const sessionVideos = new Map()
 export function setSessionVideo(listingId, objectUrl) {
   sessionVideos.set(listingId, objectUrl)
-  listeners.forEach((l) => l())
+  emit()
 }
 export function getSessionVideo(listingId) {
   return sessionVideos.get(listingId) || null
 }
 export function useSessionVideo(listingId) {
-  return useSyncExternalStore(
-    subscribe,
-    () => sessionVideos.get(listingId) || null,
-    () => null,
-  )
+  return useSyncExternalStore(subscribe, () => sessionVideos.get(listingId) || null, () => null)
 }
 
 function loadRaw(key, fallback) {
@@ -66,23 +62,27 @@ const cache = {
   saved: loadRaw(KEYS.saved, {}),
 }
 
-try {
-  if (localStorage.getItem(KEYS.listings) == null) {
-    localStorage.setItem(KEYS.listings, JSON.stringify(cache.listings))
+// localStorage seeding only matters in fallback mode
+if (!supabase) {
+  try {
+    if (localStorage.getItem(KEYS.listings) == null) {
+      localStorage.setItem(KEYS.listings, JSON.stringify(cache.listings))
+    }
+  } catch {
+    /* storage disabled — session runs from cache only */
   }
-} catch {
-  /* storage disabled — session runs from cache only */
 }
 
 function commit(key, value) {
   cache[key] = value
-  try {
-    localStorage.setItem(KEYS[key], JSON.stringify(value))
-  } catch (e) {
-    // Most likely a quota error from too many uploaded images.
-    console.warn('Storage write failed (quota?). Data kept in memory for this session.', e)
+  if (!supabase) {
+    try {
+      localStorage.setItem(KEYS[key], JSON.stringify(value))
+    } catch (e) {
+      console.warn('Storage write failed (quota?). Kept in memory this session.', e)
+    }
   }
-  listeners.forEach((l) => l())
+  emit()
 }
 
 function subscribe(cb) {
@@ -91,6 +91,47 @@ function subscribe(cb) {
 }
 
 const now = () => new Date().toISOString()
+
+// ---- row <-> object mappers (Supabase mode) ---------------------------------
+const rowToListing = (r) => ({ ...r.data, id: r.id, status: r.status, verified: r.verified, inspected: r.inspected })
+const listingToRow = (l) => ({
+  id: l.id,
+  owner: null,
+  status: l.status,
+  deal_type: l.dealType || 'rent',
+  state: l.state || null,
+  verified: !!l.verified,
+  inspected: !!l.inspected,
+  data: l,
+})
+const rowToTenant = (r) => ({ ...r.data, id: r.id, status: r.status })
+const tenantToRow = (t) => ({ id: t.id, status: t.status || 'pending', data: t })
+const rowToMessage = (r) => ({ id: r.id, name: r.name, email: r.email, message: r.message, read: r.read, createdAt: r.created_at })
+
+// ---- hydrate from Supabase + realtime ---------------------------------------
+async function hydrate() {
+  if (!supabase) return
+  try {
+    const [{ data: listings }, { data: tenants }, { data: messages }] = await Promise.all([
+      supabase.from('listings').select('*').order('created_at', { ascending: false }),
+      supabase.from('tenants').select('*').order('created_at', { ascending: false }),
+      supabase.from('messages').select('*').order('created_at', { ascending: false }),
+    ])
+    if (listings) cache.listings = listings.map(rowToListing)
+    if (tenants) cache.tenants = tenants.map(rowToTenant)
+    if (messages) cache.messages = messages.map(rowToMessage)
+    emit()
+  } catch (e) {
+    console.warn('Supabase hydrate failed — showing seed/cached data.', e)
+  }
+}
+if (supabase) {
+  hydrate()
+  supabase
+    .channel('luxekeys-db')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, hydrate)
+    .subscribe()
+}
 
 // ---- Listings ----------------------------------------------------------------
 export function getListings() {
@@ -105,14 +146,14 @@ export function getListing(id) {
 export function addListing(data) {
   const listing = {
     id: 'user-' + Date.now(),
-    status: 'pending', // new landlord listings await verification
-    verified: false, // combined flag kept for back-compat
-    inspected: false, // "Verified Listing" — field agent inspection
+    status: 'pending',
+    verified: false,
+    inspected: false,
     reviewNote: '',
     reviewedBy: '',
     reviewedAt: '',
     createdAt: now(),
-    dealType: 'rent', // rent | buy | land
+    dealType: 'rent',
     agreementFee: 0,
     parking: '',
     furnishing: '',
@@ -126,36 +167,51 @@ export function addListing(data) {
     videoUrl: '',
     videoFileName: '',
     ...data,
-    // idVerified = "Identity-Verified Landlord" (KYC / vNIN). Distinct from
-    // inspected. The two badges are NEVER merged — that's the differentiator.
     landlord: { verified: false, idVerified: false, since: String(new Date().getFullYear()), ...data.landlord },
   }
-  commit('listings', [listing, ...cache.listings])
+  cache.listings = [listing, ...cache.listings]
+  if (supabase) {
+    supabase.from('listings').insert(listingToRow(listing)).then(({ error }) => {
+      if (error) console.warn('addListing persist failed', error)
+    })
+    emit()
+  } else {
+    commit('listings', cache.listings)
+  }
   return listing
 }
-// Full status control for the admin workflow. Approving sets BOTH the listing
-// inspection badge and the landlord KYC badge; they render separately.
 export function setListingStatus(id, status, { note = '', reviewedBy = 'Admin' } = {}) {
-  commit(
-    'listings',
-    cache.listings.map((l) => {
-      if (l.id !== id) return l
-      const verified = status === 'verified'
-      return {
-        ...l,
-        status,
-        verified,
-        inspected: verified,
-        reviewNote: note,
-        reviewedBy,
-        reviewedAt: now(),
-        landlord: { ...l.landlord, verified, idVerified: verified },
-      }
-    }),
-  )
+  let updated = null
+  cache.listings = cache.listings.map((l) => {
+    if (l.id !== id) return l
+    const verified = status === 'verified'
+    updated = {
+      ...l,
+      status,
+      verified,
+      inspected: verified,
+      reviewNote: note,
+      reviewedBy,
+      reviewedAt: now(),
+      landlord: { ...l.landlord, verified, idVerified: verified },
+    }
+    return updated
+  })
+  if (supabase && updated) {
+    supabase
+      .from('listings')
+      .update({ status, verified: updated.verified, inspected: updated.inspected, data: updated })
+      .eq('id', id)
+      .then(({ error }) => error && console.warn('setListingStatus persist failed', error))
+    // audit record — this is what makes "verified" provable
+    supabase.from('verifications').insert({ listing_id: id, decision: status, note }).then(() => {})
+    emit()
+  } else {
+    commit('listings', cache.listings)
+  }
 }
 
-// ---- Tenants (collection + "logged in" pointer) ------------------------------
+// ---- Tenants -----------------------------------------------------------------
 export function getTenants() {
   return cache.tenants
 }
@@ -169,12 +225,17 @@ export function getCurrentTenant() {
 export function useTenant() {
   return useSyncExternalStore(subscribe, getCurrentTenant, getCurrentTenant)
 }
-// Create or update the active tenant's screening profile (starts pending).
 export function saveTenant(profile) {
   const current = getCurrentTenant()
   if (current) {
     const updated = { ...current, ...profile, savedAt: now() }
-    commit('tenants', cache.tenants.map((t) => (t.id === current.id ? updated : t)))
+    cache.tenants = cache.tenants.map((t) => (t.id === current.id ? updated : t))
+    if (supabase) {
+      supabase.from('tenants').update(tenantToRow(updated)).eq('id', updated.id).then(() => {})
+      emit()
+    } else {
+      commit('tenants', cache.tenants)
+    }
     return updated
   }
   const record = {
@@ -187,23 +248,35 @@ export function saveTenant(profile) {
     ...profile,
     savedAt: now(),
   }
-  commit('tenants', [record, ...cache.tenants])
-  commit('currentTenant', record.id)
-  // Carry over anything saved before the profile existed.
+  cache.tenants = [record, ...cache.tenants]
+  cache.currentTenant = record.id
+  if (supabase) {
+    supabase.from('tenants').insert(tenantToRow(record)).then(({ error }) => error && console.warn('saveTenant persist failed', error))
+    emit()
+  } else {
+    commit('tenants', cache.tenants)
+    commit('currentTenant', record.id)
+  }
   const guest = cache.saved.guest || []
   if (guest.length) commit('saved', { ...cache.saved, [record.id]: guest, guest: [] })
   return record
 }
 export function setTenantStatus(id, status, { note = '', reviewedBy = 'Admin' } = {}) {
-  commit(
-    'tenants',
-    cache.tenants.map((t) =>
-      t.id === id ? { ...t, status, reviewNote: note, reviewedBy, reviewedAt: now() } : t,
-    ),
-  )
+  let updated = null
+  cache.tenants = cache.tenants.map((t) => {
+    if (t.id !== id) return t
+    updated = { ...t, status, reviewNote: note, reviewedBy, reviewedAt: now() }
+    return updated
+  })
+  if (supabase && updated) {
+    supabase.from('tenants').update(tenantToRow(updated)).eq('id', id).then(() => {})
+    emit()
+  } else {
+    commit('tenants', cache.tenants)
+  }
 }
 
-// ---- Rental requests (tenant -> landlord) ------------------------------------
+// ---- Rental requests (local demo) -------------------------------------------
 export function getRequests() {
   return cache.requests
 }
@@ -225,11 +298,18 @@ export function useMessages() {
 }
 export function addMessage(msg) {
   const record = { id: 'msg-' + Date.now(), read: false, createdAt: now(), ...msg }
-  commit('messages', [record, ...cache.messages])
+  cache.messages = [record, ...cache.messages]
+  if (supabase) {
+    supabase.from('messages').insert({ id: record.id, name: record.name, email: record.email, message: record.message, read: false })
+      .then(({ error }) => error && console.warn('addMessage persist failed', error))
+    emit()
+  } else {
+    commit('messages', cache.messages)
+  }
   return record
 }
 
-// ---- Message threads (tenant <-> landlord, with attached profile card) -------
+// ---- Message threads (local demo) -------------------------------------------
 export function getThreads() {
   return cache.threads
 }
@@ -239,8 +319,6 @@ export function useThreads() {
 export function getThreadFor(listingId, tenantId) {
   return cache.threads.find((t) => t.listingId === listingId && t.tenantId === tenantId)
 }
-// Open a thread and auto-attach the tenant's profile card. This is the core
-// interaction: the landlord sees who's asking before replying.
 export function startThread({ listing, tenant, message }) {
   const existing = getThreadFor(listing.id, tenant.id)
   if (existing) {
@@ -273,16 +351,11 @@ export function startThread({ listing, tenant, message }) {
 export function addThreadMessage(threadId, from, text) {
   commit(
     'threads',
-    cache.threads.map((t) =>
-      t.id === threadId ? { ...t, messages: [...t.messages, { from, text, at: now() }] } : t,
-    ),
+    cache.threads.map((t) => (t.id === threadId ? { ...t, messages: [...t.messages, { from, text, at: now() }] } : t)),
   )
 }
 
-// ---- Escrow state machine ----------------------------------------------------
-// ESCROW_HELD -> VIEWING_CONFIRMED -> RELEASED (auto 48h if no dispute)
-//            \-> DISPUTED -> UNDER_REVIEW -> MEDIATION -> REFUNDED | FORFEITED
-// ESCROW_HELD -> AUTO_REFUNDED (landlord never confirms within 7 days)
+// ---- Escrow state machine (local demo) --------------------------------------
 export const ESCROW_TRANSITIONS = {
   ESCROW_HELD: ['VIEWING_CONFIRMED', 'DISPUTED', 'AUTO_REFUNDED'],
   VIEWING_CONFIRMED: ['RELEASED', 'DISPUTED'],
@@ -332,7 +405,7 @@ export function advanceEscrow(id, toState) {
   )
 }
 
-// ---- Saved / bookmarked listings (per tenant) --------------------------------
+// ---- Saved / bookmarked listings (local) ------------------------------------
 const EMPTY_SAVED = []
 function savedKey() {
   return getCurrentTenant()?.id || 'guest'
@@ -353,27 +426,27 @@ export function toggleSaved(listingId) {
   commit('saved', { ...cache.saved, [key]: next })
 }
 
-// Danger button for demos: wipe everything back to seed.
+// Reset the LOCAL demo interactions. In Supabase mode this does NOT touch the
+// real database (listings/tenants/messages) — those are managed from /admin.
 export function resetDemo() {
-  Object.values(KEYS).forEach((k) => {
-    try {
-      localStorage.removeItem(k)
-    } catch {
-      /* ignore */
-    }
+  ;[KEYS.currentTenant, KEYS.requests, KEYS.threads, KEYS.escrows, KEYS.saved].forEach((k) => {
+    try { localStorage.removeItem(k) } catch { /* ignore */ }
   })
-  cache.listings = SEED_LISTINGS
-  cache.tenants = []
   cache.currentTenant = null
   cache.requests = []
-  cache.messages = []
   cache.threads = []
   cache.escrows = []
   cache.saved = {}
-  try {
-    localStorage.setItem(KEYS.listings, JSON.stringify(SEED_LISTINGS))
-  } catch {
-    /* ignore */
+  if (supabase) {
+    hydrate()
+  } else {
+    ;[KEYS.listings, KEYS.tenants, KEYS.messages].forEach((k) => {
+      try { localStorage.removeItem(k) } catch { /* ignore */ }
+    })
+    cache.listings = SEED_LISTINGS
+    cache.tenants = []
+    cache.messages = []
+    try { localStorage.setItem(KEYS.listings, JSON.stringify(SEED_LISTINGS)) } catch { /* ignore */ }
   }
-  listeners.forEach((l) => l())
+  emit()
 }
