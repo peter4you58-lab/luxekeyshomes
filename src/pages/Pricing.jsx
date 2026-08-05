@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 // Provisional pricing — the point is to make the business model legible to a
 // visitor (and an investor): who pays, how much, at what trigger. Numbers are
 // easy to change here in one place.
-const LANDLORD_FEE = '₦5,000'
+const LANDLORD_RATE = '5%'
 
 export default function Pricing() {
   return (
@@ -15,8 +15,8 @@ export default function Pricing() {
             Honest pricing. <span className="u">Tenants never pay us.</span>
           </h1>
           <p style={{ fontSize: 18, color: 'var(--ink-soft)', marginTop: 18, lineHeight: 1.6 }}>
-            No agent commission. No agreement fees. Landlords pay one small fee to have a home
-            inspected and verified — and only verified homes ever go live.
+            No listing fees. No agency fees. Landlords pay a simple 5% only when their property is
+            actually rented or sold through LuxeKeys — so we only win when you do.
           </p>
         </div>
       </section>
@@ -44,14 +44,14 @@ export default function Pricing() {
             <div className="panel" style={{ marginTop: 0, borderColor: 'var(--gold)', boxShadow: 'var(--shadow-md)' }}>
               <span className="eyebrow" style={{ color: 'var(--gold-deep)' }}>For landlords &amp; owners</span>
               <h2 style={{ margin: '10px 0 4px', fontSize: 'clamp(30px,4vw,40px)' }}>
-                {LANDLORD_FEE} <span style={{ fontSize: 15, color: 'var(--ink-soft)', fontWeight: 500 }}>/ verified listing</span>
+                {LANDLORD_RATE} <span style={{ fontSize: 15, color: 'var(--ink-soft)', fontWeight: 500 }}>of the rent or sale, on success</span>
               </h2>
-              <p className="rules-text" style={{ marginBottom: 16 }}>Charged only when your home passes verification. No commission — you keep 100% of the rent.</p>
+              <p className="rules-text" style={{ marginBottom: 16 }}>Free to list and verify. You pay the 5% only when your property is successfully rented or sold through LuxeKeys.</p>
               <ul className="rules-text" style={{ paddingLeft: 18, lineHeight: 1.9 }}>
-                <li>Physical inspection by our field team</li>
-                <li>Landlord ID (KYC) verification</li>
+                <li>Free listing, inspection &amp; ID verification</li>
                 <li>Both trust badges shown on your listing</li>
                 <li>Reach verified tenants — no agents in between</li>
+                <li>You pay only when the deal actually closes</li>
               </ul>
               <Link to="/list" className="btn btn-gold btn-block" style={{ marginTop: 18 }}>
                 List your property
@@ -60,19 +60,19 @@ export default function Pricing() {
           </div>
 
           <p style={{ textAlign: 'center', color: 'var(--ink-faint)', fontSize: 14, marginTop: 22 }}>
-            What you see is what you pay. A small escrow service fee on completed rentals is planned as we scale.
+            No upfront cost, ever. We only earn when your property is rented or sold.
           </p>
         </div>
       </section>
 
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="wrap" style={{ textAlign: 'center', maxWidth: 680 }}>
-          <span className="eyebrow">Why a fee at all?</span>
-          <h2 style={{ marginTop: 8 }}>Because verification is real work</h2>
+          <span className="eyebrow">Why 5%?</span>
+          <h2 style={{ marginTop: 8 }}>We only earn when you do</h2>
           <p style={{ color: 'var(--ink-soft)', fontSize: 17, marginTop: 12 }}>
-            Someone physically visits and photographs every home and checks every landlord's identity.
-            The fee keeps that process honest and sustainable — and it's why a LuxeKeys listing means
-            something that a free classifieds post never can.
+            Listing, inspection and verification cost you nothing up front. We take a 5% share only
+            when your property is successfully rented or sold — so our incentive is simple: get your
+            home let, to the right tenant, safely. Far less than the agent fees you'd pay otherwise.
           </p>
           <div className="hero__cta" style={{ justifyContent: 'center', marginTop: 22 }}>
             <Link to="/list" className="btn btn-primary btn-lg">List your property</Link>
